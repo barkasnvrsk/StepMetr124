@@ -12,6 +12,7 @@ import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.content.ContextCompat;
@@ -42,11 +43,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private Runnable timerRunnable = new Runnable() {
         @Override
         public void run() {
-            long mills = System.currentTimeMillis() - startTime;
-            int seconds = (int) (mills / 1000);
-            int min = seconds / 60;
-            seconds = seconds % 60;
-            timeTextView.setText(String.format(Locale.getDefault(), "Time : %02d:%02d", min, seconds));
+            long timerMills = System.currentTimeMillis() - startTime;
+            int timerSeconds = (int) (timerMills / 1000);
+            int timerMin = timerSeconds / 60;
+            timerSeconds = timerSeconds % 60;
+            timeTextView.setText(String.format(Locale.getDefault(), "Time : %02d:%02d", timerMin, timerSeconds));
             timerHandler.postDelayed(this, 1000);
         }
     };
@@ -56,19 +57,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         super.onResume();
         if (stepCounterSensor != null) {
             sensorManager.registerListener(this, stepCounterSensor
-                    , SensorManager.SENSOR_DELAY_FASTEST);//SENSOR_DELAY_NORMAL
+                    , SensorManager.SENSOR_DELAY_NORMAL);
             if (isTimerWork) {
                 timerHandler.postDelayed(timerRunnable, 0);
             }
-        }
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        if (stepCounterSensor != null) {
-            sensorManager.unregisterListener(this);
-            timerHandler.removeCallbacks(timerRunnable);
         }
     }
 
@@ -79,14 +71,24 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         stepCountTextView = findViewById(R.id.stepCountTextView);
         distanceTextView = findViewById(R.id.distanceTextView);
         timeTextView = findViewById(R.id.timeTextView);
-//        pauseButton = findViewById(R.id.pauseButton);
         switchButton = findViewById(R.id.switchButton);
         stepCountTargetTextView = findViewById(R.id.stepCountTargetTextView);
         progressBar = findViewById(R.id.progressBar);
-
         checkSelfPermission();
 
-        startTime = System.currentTimeMillis();
+        if(savedInstanceState!=null){
+            readBundleIfExist(savedInstanceState);
+
+
+            timeTextView.setText(savedInstanceState.getString("timeTextViewText"));
+
+
+
+
+        }else {
+            startTime = System.currentTimeMillis();
+        }
+
 
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
@@ -98,6 +100,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             stepCountTextView.setText("Step counter not available");
         }
 
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (stepCounterSensor != null) {
+            sensorManager.unregisterListener(this);
+            timerHandler.removeCallbacks(timerRunnable);
+        }
     }
 
     @Override
@@ -119,22 +130,59 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     @Override
+    protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+    }
+
+    @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
     }
 
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putInt("stepCountInt",stepCountInt);
+        outState.putBoolean("isTimerWork",isTimerWork);
+        outState.putLong("startTime",startTime);
+        outState.putLong("timePausedLong",timePausedLong);
+        outState.putFloat("distanceInKm",distanceInKm);
+        outState.putString("timeTextViewText",timeTextView.getText().toString());
+    }
 
+    private void readBundleIfExist(Bundle bundle) {
+        stepCountInt = bundle.getInt("stepCountInt");
+        isTimerWork = bundle.getBoolean("isTimerWork");
+        startTime = bundle.getLong("startTime");
+        timePausedLong = bundle.getLong("timePausedLong");
+        distanceInKm = bundle.getFloat("distanceInKm");
+        switchButton.setChecked(isTimerWork);
+        timeTextView.setText(bundle.getString("timeTextViewText"));
+        if (isTimerWork) {
+            startTimer();
+        } else {
+            stopTimer();
+        }
+    }
 
     public void onPauseSwitchButtonClicked(View view) {
         SwitchCompat v = (SwitchCompat) view;
         if (v.isChecked()) {
-//            v.setText("Работает");
-            isTimerWork = false;
-            startTime = System.currentTimeMillis() - timePausedLong;
-            timerHandler.postDelayed(timerRunnable, 0);
+            startTimer();
         } else {
-//            v.setText("Выключено");
-            isTimerWork = true;
+            stopTimer();
+        }
+    }
+
+    private void startTimer() {
+        isTimerWork = true;
+        startTime = System.currentTimeMillis() - timePausedLong;
+        timerHandler.postDelayed(timerRunnable, 0);
+    }
+
+    private void stopTimer() {
+        if(isTimerWork){
+            isTimerWork = false;
             timerHandler.removeCallbacks(timerRunnable);
             timePausedLong = System.currentTimeMillis() - startTime;
         }
