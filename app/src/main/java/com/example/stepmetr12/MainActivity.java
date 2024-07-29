@@ -40,14 +40,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private Handler timerHandler = new Handler();
 
+    private long timerMills;
     private Runnable timerRunnable = new Runnable() {
         @Override
         public void run() {
-            long timerMills = System.currentTimeMillis() - startTime;
+            timerMills = System.currentTimeMillis() - startTime;
             int timerSeconds = (int) (timerMills / 1000);
             int timerMin = timerSeconds / 60;
             timerSeconds = timerSeconds % 60;
-            timeTextView.setText(String.format(Locale.getDefault(), "Time : %02d:%02d", timerMin, timerSeconds));
+            timeTextView.setText(String.format(Locale.getDefault(), "Time: %02d:%02d", timerMin, timerSeconds));
             timerHandler.postDelayed(this, 1000);
         }
     };
@@ -57,7 +58,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         super.onResume();
         if (stepCounterSensor != null) {
             sensorManager.registerListener(this, stepCounterSensor
-                    , SensorManager.SENSOR_DELAY_NORMAL);
+                    , SensorManager.SENSOR_DELAY_FASTEST,0);
             if (isTimerWork) {
                 timerHandler.postDelayed(timerRunnable, 0);
             }
@@ -76,22 +77,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         progressBar = findViewById(R.id.progressBar);
         checkSelfPermission();
 
-        if(savedInstanceState!=null){
+        if (savedInstanceState != null) {
             readBundleIfExist(savedInstanceState);
-
-
             timeTextView.setText(savedInstanceState.getString("timeTextViewText"));
-
-
-
-
-        }else {
+        } else {
             startTime = System.currentTimeMillis();
         }
 
 
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
+        stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR);
 
         progressBar.setMax(stepCountTarget);
         stepCountTargetTextView.setText("Step Goal " + stepCountTarget);
@@ -113,11 +108,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     @Override
     public void onSensorChanged(SensorEvent sensorEvent) {
-        if (sensorEvent.sensor.getType() == Sensor.TYPE_STEP_COUNTER) {
+        if (sensorEvent.sensor.getType() == Sensor.TYPE_STEP_DETECTOR) {//TYPE_STEP_DETECTOR TYPE_STEP_COUNTER
 //            stepCountInt = (int) sensorEvent.values[0];
             stepCountTextView.setText("Step count : " + stepCountInt);
             progressBar.setProgress(stepCountInt);
-            stepCountInt++ ;
+            stepCountInt++;
 
             if (stepCountInt >= stepCountTarget) {
                 stepCountTargetTextView.setText("Step Goal Achieved");
@@ -142,12 +137,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
-        outState.putInt("stepCountInt",stepCountInt);
-        outState.putBoolean("isTimerWork",isTimerWork);
-        outState.putLong("startTime",startTime);
-        outState.putLong("timePausedLong",timePausedLong);
-        outState.putFloat("distanceInKm",distanceInKm);
-        outState.putString("timeTextViewText",timeTextView.getText().toString());
+        outState.putInt("stepCountInt", stepCountInt);
+        outState.putBoolean("isTimerWork", isTimerWork);
+        outState.putLong("startTime", startTime);
+        outState.putLong("timePausedLong", timePausedLong);
+        outState.putFloat("distanceInKm", distanceInKm);
+        outState.putString("timeTextViewText", timeTextView.getText().toString());
     }
 
     private void readBundleIfExist(Bundle bundle) {
@@ -159,44 +154,40 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         switchButton.setChecked(isTimerWork);
         timeTextView.setText(bundle.getString("timeTextViewText"));
         if (isTimerWork) {
-            startTimer();
-        } else {
-            stopTimer();
+            timerHandler.postDelayed(timerRunnable, 0);
         }
     }
 
     public void onPauseSwitchButtonClicked(View view) {
         SwitchCompat v = (SwitchCompat) view;
         if (v.isChecked()) {
-            startTimer();
+            isTimerWork = true;
+            startTime = System.currentTimeMillis() - timePausedLong;////при повороте экрана запускается новый таймер
+            timerHandler.postDelayed(timerRunnable, 0);
         } else {
-            stopTimer();
+            if (isTimerWork) {
+                isTimerWork = false;
+                timerHandler.removeCallbacks(timerRunnable);
+                timePausedLong = System.currentTimeMillis() - startTime;
+            }
+
         }
     }
 
-    private void startTimer() {
-        isTimerWork = true;
-        startTime = System.currentTimeMillis() - timePausedLong;
-        timerHandler.postDelayed(timerRunnable, 0);
-    }
 
-    private void stopTimer() {
-        if(isTimerWork){
-            isTimerWork = false;
-            timerHandler.removeCallbacks(timerRunnable);
-            timePausedLong = System.currentTimeMillis() - startTime;
-        }
-    }
-
-    public void onResetButtonClicked(View view){
-        startTime = System.currentTimeMillis();
+    public void onResetButtonClicked(View view) {
         progressBar.setProgress(0);
+        startTime = System.currentTimeMillis();
         stepCountInt = 0;
         distanceInKm = 0;
-        stepCountTextView.setText("Step count : " + stepCountInt);
+        timerMills = 0;
+        timePausedLong = 0;
+        timeTextView.setText("Time: 00:00");
+        stepCountTextView.setText("Step count: " + stepCountInt);
         distanceTextView.setText(String.format(Locale.getDefault(), "Distance: %.2f km", distanceInKm));
 
     }
+
     private void checkSelfPermission() {
         //проверка есть ли на телефоне датчики FEATURE_SENSOR_STEP_DETECTOR и FEATURE_SENSOR_STEP_COUNTER
         if (getApplicationContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_SENSOR_STEP_DETECTOR)
