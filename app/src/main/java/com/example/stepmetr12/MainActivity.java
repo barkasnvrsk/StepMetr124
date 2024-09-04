@@ -54,18 +54,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     };
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        if (stepCounterSensor != null) {
-            sensorManager.registerListener(this, stepCounterSensor
-                    , SensorManager.SENSOR_DELAY_FASTEST,0);
-            if (isTimerWork) {
-                timerHandler.postDelayed(timerRunnable, 0);
-            }
-        }
-    }
-
-    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
@@ -98,6 +86,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        if (stepCounterSensor != null) {
+            sensorManager.registerListener(this, stepCounterSensor
+                    , SensorManager.SENSOR_DELAY_FASTEST,0);
+            if (isTimerWork) {
+                timerHandler.postDelayed(timerRunnable, 0);
+            }
+        }
+    }
+
+    @Override
     protected void onStop() {
         super.onStop();
         if (stepCounterSensor != null) {
@@ -121,6 +121,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             distanceInKm = stepCountInt * stepLengthInMeters / 1000;
 
             distanceTextView.setText(String.format(Locale.getDefault(), "Distance: %.2f km", distanceInKm));
+
+//            sensorEvent.timestamp
         }
     }
 
